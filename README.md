@@ -1,11 +1,12 @@
 # api_coletor_scraper
 
-Aplicação em Python + FastAPI para coletar conteúdo de páginas web.
+## Aplicação em Python + FastAPI para coletar conteúdo de páginas web.
 
-Para testar localmente:
-$ uvicorn main:app --reload
+### Para testar localmente: 
+`uvicorn main:app --reload`
 
-Acesse no navegador: http://127.0.0.1:8000
+### Acesse no navegador: 
+`http://127.0.0.1:8000`
 
 ## Obter credencial de acesso ao banco de dados
 * Console do Google Cloud Platform
