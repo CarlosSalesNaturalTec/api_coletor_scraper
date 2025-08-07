@@ -1,10 +1,10 @@
 import re
 from datetime import datetime
 from newspaper import Article
-from database import get_db
+from database import get_db, save_error_log
 
 def get_urls_from_firestore():
-    """Fetches URLs from the 'resultados_pesquisa' collection in Firestore."""
+    """Busca URLs da coleção 'resultados_pesquisa' no Firestore."""
     db = get_db()
     if not db:
         return []
@@ -17,11 +17,13 @@ def get_urls_from_firestore():
             if 'link' in data:
                 urls.append(data['link'])
     except Exception as e:
-        print(f"Error fetching URLs from Firestore: {e}")
+        error_msg = f"Erro ao buscar URLs do Firestore: {e}"
+        print(error_msg)
+        save_error_log(error_msg, context="get_urls_from_firestore")
     return urls
 
 def save_failed_url(url, reason):
-    """Saves a URL that failed to be scraped to the 'urls_com_falha' collection."""
+    """Salva uma URL que falhou ao ser raspada na coleção 'urls_com_falha'."""
     db = get_db()
     if not db:
         return
@@ -29,18 +31,20 @@ def save_failed_url(url, reason):
     try:
         db.collection('urls_com_falha').add({'url': url, 'reason': reason, 'timestamp': datetime.now()})
     except Exception as e:
-        print(f"Error saving failed URL to Firestore: {e}")
+        error_msg = f"Erro ao salvar URL com falha no Firestore: {e}"
+        print(error_msg)
+        save_error_log(error_msg, context="save_failed_url")
 
 def scrape_and_save():
     """
-    Fetches URLs from Firestore, scrapes them using newspaper3k,
-    and saves the results or logs failures.
+    Busca URLs do Firestore, raspa-as usando newspaper3k,
+    e salva os resultados ou registra as falhas.
     """
     urls = get_urls_from_firestore()
     db = get_db()
 
     if not db:
-        print("Could not connect to Firestore. Aborting.")
+        print("Não foi possível conectar ao Firestore. Abortando.")
         return
 
     for url in urls:
@@ -61,24 +65,25 @@ def scrape_and_save():
 
             if failure_reasons:
                 reason = ", ".join(failure_reasons)
-                print(f"Scraping failed for {url}, saving to failed URLs. Reason: {reason}")
+                print(f"A raspagem falhou para {url}, salvando em URLs com falha. Motivo: {reason}")
                 save_failed_url(url, reason)
                 continue
 
             data = extract_article_data(article, url)
             
-            # Save the scraped data to a new collection, e.g., 'scraped_articles'
+            # Salva os dados raspados em uma nova coleção, por exemplo, 'scraped_articles'
             db.collection('scraped_articles').add(data)
-            print(f"Successfully scraped and saved: {url}")
+            print(f"Raspado e salvo com sucesso: {url}")
 
         except Exception as e:
-            reason = f"Exception: {str(e)}"
-            print(f"An error occurred while scraping {url}: {e}")
+            reason = f"Exceção: {str(e)}"
+            print(f"Ocorreu um erro ao raspar {url}: {e}")
             save_failed_url(url, reason)
+            save_error_log(f"Erro ao raspar a URL: {url}. Exceção: {e}", context="scrape_and_save")
 
 def has_significant_text(html):
     """
-    Checks if the HTML contains significant text within <p> or <article> tags.
+    Verifica se o HTML contém texto significativo dentro das tags <p> ou <article>.
     """
     from lxml import html as lxml_html
     
@@ -87,12 +92,12 @@ def has_significant_text(html):
         
     tree = lxml_html.fromstring(html)
     
-    # Check for text in <article> tags
+    # Verifica o texto nas tags <article>
     article_elements = tree.xpath('//article//text()')
     if any(text.strip() for text in article_elements):
         return True
         
-    # Check for text in <p> tags
+    # Verifica o texto nas tags <p>
     p_elements = tree.xpath('//p//text()')
     if any(text.strip() for text in p_elements):
         return True
@@ -100,7 +105,7 @@ def has_significant_text(html):
     return False
 
 def extract_article_data(article, url):
-    """Extracts and returns structured data from the article object."""
+    """Extrai e retorna dados estruturados do objeto do artigo."""
     publish_date = article.publish_date
 
     if not publish_date:

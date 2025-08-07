@@ -1,19 +1,22 @@
 from fastapi import FastAPI, HTTPException
 from scraper import scrape_and_save
+from database import save_error_log
 
 app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return {"message": "api_coletor_scraper no ar! Utilizando Newspaper3k."}
+    return {"message": "API Coletor Scraper no ar! Utilizando Newspaper3k."}
 
 @app.post("/scrape-all")
 def scrape_all_sites():
     """
-    Triggers the scraping of all URLs from the 'resultados_pesquisa' collection.
+    Aciona a raspagem de todas as URLs da coleção 'resultados_pesquisa'.
     """
     try:
         scrape_and_save()
-        return {"status": "success", "message": "Scraping process initiated."}
+        return {"status": "sucesso", "message": "Processo de raspagem concluido com sucesso."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+        error_msg = f"Ocorreu um erro geral no endpoint /scrape-all: {e}"
+        save_error_log(error_msg, context="scrape_all_sites_endpoint")
+        raise HTTPException(status_code=500, detail=error_msg)
